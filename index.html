@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>세무자문업무 계약서 자동 생성기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Malgun Gothic','맑은 고딕',sans-serif; background:#f0f2f5; color:#333; }
+.header { background:linear-gradient(135deg,#1a365d,#2c5282); color:#fff; padding:20px 32px; display:flex; align-items:center; gap:16px; box-shadow:0 2px 8px rgba(0,0,0,.15); }
+.header h1 { font-size:22px; font-weight:700; }
+.header .sub { font-size:13px; opacity:.8; margin-top:4px; }
+.container { display:flex; gap:0; height:calc(100vh - 72px); }
+.panel-left { width:440px; min-width:400px; overflow-y:auto; background:#fff; border-right:1px solid #ddd; padding:20px 24px; }
+.panel-right { flex:1; overflow-y:auto; background:#e8ecf1; padding:32px; }
+.section-title { font-size:14px; font-weight:700; color:#1a365d; border-bottom:2px solid #2c5282; padding-bottom:5px; margin:18px 0 10px; display:flex; align-items:center; gap:8px; }
+.section-title:first-child { margin-top:0; }
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; font-size:11.5px; font-weight:600; color:#555; margin-bottom:3px; }
+.form-group input, .form-group select, .form-group textarea {
+  width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:6px; font-size:13px; font-family:inherit; transition:border-color .2s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline:none; border-color:#2c5282; box-shadow:0 0 0 2px rgba(44,82,130,.15); }
+.form-group textarea { resize:vertical; min-height:50px; }
+.row { display:flex; gap:10px; }
+.row .form-group { flex:1; }
+.type-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-bottom:14px; }
+.type-btn { padding:9px 4px; border:2px solid #ddd; border-radius:8px; background:#fff; cursor:pointer; text-align:center; font-size:12px; font-weight:600; transition:all .2s; }
+.type-btn:hover { border-color:#2c5282; background:#ebf0f7; }
+.type-btn.active { border-color:#2c5282; background:#2c5282; color:#fff; }
+.clause-toggle { display:flex; align-items:center; gap:8px; padding:6px 10px; margin-bottom:4px; background:#f7f9fc; border-radius:6px; cursor:pointer; user-select:none; font-size:12.5px; }
+.clause-toggle:hover { background:#ebf0f7; }
+.clause-toggle input[type=checkbox] { width:15px; height:15px; accent-color:#2c5282; cursor:pointer; }
+.fee-type-group { display:flex; gap:6px; margin-bottom:8px; }
+.fee-type-btn { flex:1; padding:7px; border:1px solid #ccc; border-radius:6px; background:#fff; cursor:pointer; text-align:center; font-size:12px; transition:all .2s; }
+.fee-type-btn.active { border-color:#2c5282; background:#2c5282; color:#fff; }
+.btn-group { display:flex; gap:8px; margin-top:16px; position:sticky; bottom:0; background:#fff; padding:10px 0; border-top:1px solid #eee; }
+.btn { flex:1; padding:11px; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; font-family:inherit; }
+.btn-preview { background:#2c5282; color:#fff; }
+.btn-preview:hover { background:#1a365d; }
+.btn-docx { background:#217346; color:#fff; }
+.btn-docx:hover { background:#185c37; }
+.btn-pdf { background:#c0392b; color:#fff; }
+.btn-pdf:hover { background:#a93226; }
+
+/* 미리보기 — 신영에셋 샘플 서식 기준 (HY신명조, 11pt, line 300 auto) */
+.preview-container { background:#fff; max-width:780px; margin:0 auto; padding:64px 64px 52px; box-shadow:0 2px 16px rgba(0,0,0,.12); min-height:1100px; line-height:1.7; font-size:10pt; font-family:'HY신명조','바탕','Batang',serif; color:#000; }
+.preview-container .doc-title { text-align:center; font-size:12pt; font-weight:700; margin-bottom:6px; letter-spacing:1px; }
+.preview-container .doc-line { border:none; height:2.5px; background:#605848; margin:8px auto 20px; width:75%; }
+.preview-container .parties { margin-bottom:20px; line-height:1.5; }
+.preview-container .parties p { margin-bottom:1px; }
+.preview-container .intro-text { margin-bottom:18px; line-height:1.5; text-align:justify; }
+.preview-container .article { margin-bottom:18px; margin-top:16px; }
+.preview-container .article-title { font-weight:700; margin-bottom:10px; font-size:10pt; }
+.preview-container .article-body { text-align:justify; }
+.preview-container .article-body p.cl { margin:0 0 4px 0; margin-left:18pt; text-indent:-18pt; }
+.preview-container .article-body p.cl-nosub { margin:0 0 4px 0; text-indent:12pt; }
+.preview-container .article-list { padding-left:2.5em; margin-top:4px; margin-bottom:4px; }
+.preview-container .article-list li { margin-bottom:2px; }
+.preview-container .closing { margin-top:18px; margin-bottom:0; text-align:justify; }
+.preview-container .sign-area { margin-top:28px; text-align:center; }
+.preview-container .sign-date { font-size:10pt; font-weight:700; margin-bottom:20px; }
+.preview-container .sign-table { width:100%; border-collapse:collapse; margin-top:12px; }
+.preview-container .sign-table td { vertical-align:top; border:none; padding:0 8px; line-height:1.9; font-size:10pt; text-align:left; }
+.preview-container .sign-table .label { font-weight:700; font-size:10pt; margin-bottom:1px; }
+.placeholder { color:#c0392b; background:#fff3f3; padding:0 4px; border-radius:3px; font-style:italic; }
+.uline { text-decoration:underline; text-underline-offset:3px; }
+
+/* 업무내용 */
+.task-list { margin-bottom:6px; }
+.task-item { display:flex; gap:6px; margin-bottom:5px; align-items:center; }
+.task-item input { flex:1; }
+.task-item .btn-remove { width:26px; height:26px; border:none; background:#e74c3c; color:#fff; border-radius:4px; cursor:pointer; font-size:15px; line-height:1; }
+.btn-add-task { padding:5px 12px; border:1px dashed #2c5282; background:#f7f9fc; color:#2c5282; border-radius:6px; cursor:pointer; font-size:11.5px; font-weight:600; }
+.btn-add-task:hover { background:#ebf0f7; }
+
+/* 업무예시 토글 */
+.task-preset-area { margin-bottom:10px; }
+.task-preset-area .preset-label { font-size:11.5px; font-weight:600; color:#555; margin-bottom:5px; }
+.preset-grid { display:flex; flex-wrap:wrap; gap:4px; }
+.preset-chip {
+  padding:5px 10px; border:1px solid #ccc; border-radius:14px; background:#fff;
+  cursor:pointer; font-size:11.5px; transition:all .15s; user-select:none;
+}
+.preset-chip:hover { border-color:#2c5282; background:#ebf0f7; }
+.preset-chip.active { border-color:#2c5282; background:#2c5282; color:#fff; }
+
+/* 한글 금액 자동표시 */
+.auto-kr { font-size:12px; color:#2c5282; font-weight:600; margin-top:2px; min-height:16px; }
+
+@media(max-width:900px) {
+  .container { flex-direction:column; height:auto; }
+  .panel-left { width:100%; min-width:auto; border-right:none; border-bottom:1px solid #ddd; }
+  .panel-right { padding:16px; }
+  .preview-container { padding:30px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>세무자문업무 계약서 자동 생성기</h1>
+    <div class="sub">업무 유형을 선택하고 정보를 입력하면 계약서가 자동 생성됩니다</div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="panel-left">
+
+    <!-- 업무유형 -->
+    <div class="section-title">📋 업무 유형 선택</div>
+    <div class="type-grid">
+      <div class="type-btn active" data-type="세무자문" onclick="selectType(this)">세무자문</div>
+      <div class="type-btn" data-type="세무조정" onclick="selectType(this)">세무조정</div>
+      <div class="type-btn" data-type="세무조사" onclick="selectType(this)">세무조사</div>
+      <div class="type-btn" data-type="상속증여" onclick="selectType(this)">상속·증여</div>
+      <div class="type-btn" data-type="양도" onclick="selectType(this)">양도</div>
+      <div class="type-btn" data-type="경정청구" onclick="selectType(this)">경정청구</div>
+      <div class="type-btn" data-type="합병분할" onclick="selectType(this)">합병·분할</div>
+      <div class="type-btn" data-type="기타" onclick="selectType(this)">기타</div>
+    </div>
+
+    <!-- 계약 기본정보 -->
+    <div class="section-title">📅 계약 기본정보</div>
+    <div class="form-group">
+      <label>계약 체결일</label>
+      <input type="date" id="contractDate">
+    </div>
+    <div class="row">
+      <div class="form-group">
+        <label>업무수행기간 시작</label>
+        <input type="date" id="periodStart">
+      </div>
+      <div class="form-group">
+        <label>업무수행기간 종료</label>
+        <input type="date" id="periodEnd">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>업무수행기간 (직접 입력 - 위 날짜 대신 텍스트로)</label>
+      <input type="text" id="periodText" placeholder="예: 계약 체결일부터 세무조사 종료일 까지">
+    </div>
+
+    <!-- 위임자(갑) -->
+    <div class="section-title">🏢 <span id="partyALabel">위임자</span>(갑) 정보</div>
+    <div class="form-group"><label>위임자 유형</label>
+      <div class="fee-type-group">
+        <button type="button" class="fee-type-btn active" onclick="setPartyAType('법인')">법인(상호)</button>
+        <button type="button" class="fee-type-btn" onclick="setPartyAType('개인')">개인(성명)</button>
+      </div>
+    </div>
+    <div class="form-group"><label id="companyALabel">상호(회사명)</label><input type="text" id="companyA" placeholder="예: ㈜유진로봇"></div>
+    <div class="form-group" id="ceoAGroup"><label>대표이사</label><input type="text" id="ceoA" placeholder="예: 홍길동"></div>
+    <div class="form-group"><label>소재지(주소)</label><input type="text" id="addressA" placeholder="예: 서울특별시 강남구 ..."></div>
+
+    <!-- 수임자(을) -->
+    <div class="section-title">🏛️ <span id="partyBLabel">수임자</span>(을) 정보</div>
+    <div class="form-group"><label>상호(법인명)</label><input type="text" id="companyB" value="더나은세무법인 덕수지점"></div>
+    <div class="form-group"><label>대표이사</label><input type="text" id="ceoB" value="김수미 세무사"></div>
+    <div class="form-group"><label>사무소 소재지</label><input type="text" id="addressB" value="서울특별시 관악구 남부순환로 1457 3층"></div>
+
+    <!-- 업무 내용 -->
+    <div class="section-title">📝 위임 업무 내용</div>
+    <div class="form-group" id="taxAdjustYear" style="display:none;">
+      <label>귀속 사업연도</label>
+      <input type="text" id="adjYear" placeholder="예: 2025">
+    </div>
+
+    <!-- 업무예시 선택 영역 -->
+    <div class="task-preset-area">
+      <div class="preset-label">자주 쓰는 업무내용 (클릭하여 추가)</div>
+      <div class="preset-grid" id="presetGrid"></div>
+    </div>
+
+    <div class="task-list" id="taskList">
+      <div class="task-item">
+        <input type="text" class="task-input" placeholder="업무내용을 직접 입력하세요">
+        <button class="btn-remove" onclick="removeTask(this)">×</button>
+      </div>
+    </div>
+    <button class="btn-add-task" onclick="addTask()">+ 업무 내용 추가 (직접입력)</button>
+
+    <!-- 보수 -->
+    <div class="section-title">💰 보수 정보</div>
+    <div class="fee-type-group">
+      <div class="fee-type-btn active" data-fee="정액" onclick="selectFeeType(this)">정액 보수</div>
+      <div class="fee-type-btn" data-fee="성공" onclick="selectFeeType(this)">성공 보수</div>
+      <div class="fee-type-btn" data-fee="혼합" onclick="selectFeeType(this)">혼합</div>
+    </div>
+    <div id="feeFixed">
+      <div class="form-group">
+        <label>보수 금액 (숫자 입력시 한글 자동변환)</label>
+        <input type="text" id="feeAmount" placeholder="예: 50000000" oninput="onFeeInput(this)">
+        <div class="auto-kr" id="feeAutoKr"></div>
+      </div>
+    </div>
+    <div id="feeSuccess" style="display:none;">
+      <div class="form-group">
+        <label>성공보수 조건</label>
+        <textarea id="successFeeDesc" placeholder="예: 심판청구 인용 결정시 인용결정 금액의 15%"></textarea>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>부가가치세</label>
+      <select id="vatOption"><option value="별도">별도</option><option value="포함">포함</option></select>
+    </div>
+    <div class="form-group">
+      <label>부대경비 부담</label>
+      <select id="expenseOption"><option value="갑부담">갑이 별도 부담</option><option value="포함">보수에 포함</option><option value="없음">해당없음</option></select>
+    </div>
+
+    <!-- 선택 조항 -->
+    <div class="section-title">⚙️ 선택 조항 (토글)</div>
+    <label class="clause-toggle"><input type="checkbox" id="clauseIndependence"> 독립성 확인 조항</label>
+    <label class="clause-toggle"><input type="checkbox" id="clauseUseLimit" checked> 사용과 배포의 제한 조항</label>
+    <label class="clause-toggle"><input type="checkbox" id="clauseWorkplace" checked> 업무수행장소 조항</label>
+    <label class="clause-toggle"><input type="checkbox" id="clauseDisclaimer" checked> 세무자문 면책 고지 조항</label>
+    <label class="clause-toggle"><input type="checkbox" id="clauseConfDestroy"> 자료 폐기 조항</label>
+    <label class="clause-toggle"><input type="checkbox" id="clauseCourt" checked> 관할법원 ("을"의 소재지 관할법원)</label>
+
+    <div class="btn-group">
+      <button class="btn btn-preview" onclick="generatePreview()">미리보기</button>
+      <button class="btn btn-docx" onclick="generateDocx()">Word</button>
+      <button class="btn btn-pdf" onclick="generatePdf()">PDF</button>
+    </div>
+  </div>
+
+  <div class="panel-right">
+    <div class="preview-container" id="previewArea">
+      <div style="text-align:center; color:#999; padding-top:200px;">
+        <p style="font-size:48px; margin-bottom:16px;">📄</p>
+        <p style="font-size:16px;">왼쪽에서 정보를 입력하고</p>
+        <p style="font-size:16px; font-weight:700;">[미리보기] 버튼을 클릭하세요</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 업무유형별 예시 업무내용 =====
+const TASK_PRESETS = {
+  '세무자문': [
+    '법인세 관련 세무자문 업무',
+    '부가가치세 관련 세무자문 업무',
+    '원천세 관련 세무자문 업무',
+    '지방세 관련 세무자문 업무',
+    '조세불복(이의신청/심사청구/심판청구) 관련 자문',
+    '세무관련 질의·회신 업무',
+    '기업 구조조정 관련 세무 검토',
+  ],
+  '세무조정': [
+    '법인세 세무조정 및 신고 업무',
+    '지방소득세 신고 업무',
+    '세무조정계산서 작성 업무',
+    '이전가격 관련 세무조정',
+  ],
+  '세무조사': [
+    '정기 세무조사 대응 자문 업무',
+    '세무조사와 관련한 소명서 검토 업무',
+    '주요 쟁점 사항에 대한 검토 업무',
+    '세무조사 관련 수정신고 및 경정청구 업무',
+    '세무조사 결과 통지에 대한 이의신청 업무',
+    '과세예고통지에 대한 과세전적부심사 청구 업무',
+  ],
+  '상속증여': [
+    '상속세 신고 업무',
+    '증여세 신고 업무',
+    '상속세및증여세법에 의한 주식 평가 업무',
+    '상속세및증여세법에 의한 부동산 평가 업무',
+    '상속재산 조회 및 평가 업무',
+    '사전증여 관련 세무검토 업무',
+    '가업승계 관련 세무자문 업무',
+  ],
+  '양도': [
+    '양도소득세 신고 업무',
+    '양도소득세 예정신고 업무',
+    '부동산 양도 관련 세무자문 업무',
+    '주식 양도 관련 세무자문 업무',
+    '비상장주식 양도 관련 세무 검토',
+    '양도소득세 비과세·감면 검토 업무',
+  ],
+  '경정청구': [
+    '법인세 경정청구 업무',
+    '소득세 경정청구 업무',
+    '부가가치세 경정청구 업무',
+    '양도소득세 경정청구 업무',
+    '상속세·증여세 경정청구 업무',
+    '조세심판청구서 작성 업무',
+    '항변서 작성 업무',
+  ],
+  '합병분할': [
+    '합병 관련 세무 검토 업무',
+    '물적분할 관련 세무 검토 업무',
+    '인적분할 관련 세무 검토 업무',
+    '분할 과정에서 발생하는 제세에 대한 검토 업무',
+    '합병·분할 관련 주식 평가 업무',
+    '적격합병·분할 요건 검토 업무',
+  ],
+  '기타': [
+    '세무 관련 일반 자문 업무',
+    '조세불복 업무',
+    '기장대리 업무',
+    '기타 세무 관련 업무',
+  ],
+};
+
+let currentType = '세무자문';
+let currentFeeType = '정액';
+let partyAType = '법인'; // '법인' or '개인'
+let selectedPresets = new Set();
+
+// ===== 위임자 유형 전환(법인/개인) =====
+function setPartyAType(type) {
+  partyAType = type;
+  const btns = document.querySelector('#partyALabel').closest('.section-title').nextElementSibling.querySelectorAll('.fee-type-btn');
+  btns.forEach(b => b.classList.toggle('active', b.textContent.includes(type === '법인' ? '법인' : '개인')));
+  const lbl = document.getElementById('companyALabel');
+  const ceoGroup = document.getElementById('ceoAGroup');
+  if (type === '개인') {
+    lbl.textContent = '성명';
+    document.getElementById('companyA').placeholder = '예: 홍길동';
+    ceoGroup.style.display = 'none';
+  } else {
+    lbl.textContent = '상호(회사명)';
+    document.getElementById('companyA').placeholder = '예: ㈜유진로봇';
+    ceoGroup.style.display = '';
+  }
+}
+
+// ===== 숫자 → 한글금액 변환 =====
+function numberToKorean(num) {
+  if (!num || num === 0) return '';
+  const units = ['', '만', '억', '조', '경'];
+  const digits = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+  const subUnits = ['', '십', '백', '천'];
+
+  let result = '';
+  let unitIndex = 0;
+  let n = Math.floor(num);
+
+  while (n > 0) {
+    let part = n % 10000;
+    if (part > 0) {
+      let partStr = '';
+      let subIdx = 0;
+      let p = part;
+      while (p > 0) {
+        let d = p % 10;
+        if (d > 0) {
+          if (subIdx > 0 && d === 1) {
+            partStr = subUnits[subIdx] + partStr;
+          } else {
+            partStr = digits[d] + subUnits[subIdx] + partStr;
+          }
+        }
+        p = Math.floor(p / 10);
+        subIdx++;
+      }
+      result = partStr + units[unitIndex] + result;
+    }
+    n = Math.floor(n / 10000);
+    unitIndex++;
+  }
+  return result + '원';
+}
+
+function onFeeInput(input) {
+  let v = input.value.replace(/[^\d]/g, '');
+  if (v) {
+    input.value = Number(v).toLocaleString('ko-KR');
+    const krText = numberToKorean(Number(v));
+    document.getElementById('feeAutoKr').textContent = '→ ' + krText;
+  } else {
+    input.value = '';
+    document.getElementById('feeAutoKr').textContent = '';
+  }
+}
+
+function getFeeKorean() {
+  const raw = document.getElementById('feeAmount').value.replace(/[^\d]/g, '');
+  if (!raw) return '';
+  return numberToKorean(Number(raw));
+}
+
+// ===== 업무유형 선택 =====
+function selectType(el) {
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  currentType = el.dataset.type;
+  const isAdj = currentType === '세무조정';
+  document.getElementById('partyALabel').textContent = '위임자';
+  document.getElementById('partyBLabel').textContent = '수임자';
+  document.getElementById('taxAdjustYear').style.display = isAdj ? 'block' : 'none';
+  selectedPresets.clear();
+  renderPresets();
+}
+
+// ===== 업무 예시 칩 렌더 =====
+function renderPresets() {
+  const grid = document.getElementById('presetGrid');
+  const presets = TASK_PRESETS[currentType] || [];
+  grid.innerHTML = presets.map(p =>
+    `<div class="preset-chip ${selectedPresets.has(p)?'active':''}" onclick="togglePreset(this,'${p.replace(/'/g,"\\'")}')">${p}</div>`
+  ).join('');
+}
+
+function togglePreset(el, text) {
+  if (selectedPresets.has(text)) {
+    selectedPresets.delete(text);
+    el.classList.remove('active');
+  } else {
+    selectedPresets.add(text);
+    el.classList.add('active');
+  }
+}
+
+// ===== 보수유형 =====
+function selectFeeType(el) {
+  document.querySelectorAll('.fee-type-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  currentFeeType = el.dataset.fee;
+  document.getElementById('feeFixed').style.display = (currentFeeType === '성공') ? 'none' : 'block';
+  document.getElementById('feeSuccess').style.display = (currentFeeType === '정액') ? 'none' : 'block';
+}
+
+// ===== 업무내용 추가/삭제 =====
+function addTask() {
+  const list = document.getElementById('taskList');
+  const div = document.createElement('div');
+  div.className = 'task-item';
+  div.innerHTML = '<input type="text" class="task-input" placeholder="업무내용을 직접 입력하세요"><button class="btn-remove" onclick="removeTask(this)">×</button>';
+  list.appendChild(div);
+  div.querySelector('input').focus();
+}
+function removeTask(btn) {
+  const items = document.querySelectorAll('.task-item');
+  if (items.length > 1) btn.parentElement.remove();
+}
+
+// ===== 날짜 =====
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
+}
+function formatDateDoc(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}년  ${String(d.getMonth()+1).padStart(2,'0')}월  ${String(d.getDate()).padStart(2,'0')}일`;
+}
+
+// ===== 입력값 수집 =====
+function collectData() {
+  // 프리셋 선택된 업무 + 직접입력 업무 합산
+  const tasks = [...selectedPresets];
+  document.querySelectorAll('.task-input').forEach(inp => {
+    if (inp.value.trim()) tasks.push(inp.value.trim());
+  });
+
+  const rawFee = document.getElementById('feeAmount').value.replace(/[^\d]/g, '');
+  const feeFormatted = rawFee ? Number(rawFee).toLocaleString('ko-KR') : '';
+  const feeKr = rawFee ? numberToKorean(Number(rawFee)) : '';
+
+  return {
+    type: currentType,
+    contractDate: document.getElementById('contractDate').value,
+    periodStart: document.getElementById('periodStart').value,
+    periodEnd: document.getElementById('periodEnd').value,
+    periodText: document.getElementById('periodText').value.trim(),
+    companyA: document.getElementById('companyA').value.trim(),
+    ceoA: document.getElementById('ceoA').value.trim(),
+    addressA: document.getElementById('addressA').value.trim(),
+    companyB: document.getElementById('companyB').value.trim(),
+    ceoB: document.getElementById('ceoB').value.trim(),
+    addressB: document.getElementById('addressB').value.trim(),
+    adjYear: document.getElementById('adjYear').value.trim(),
+    tasks,
+    feeType: currentFeeType,
+    feeAmount: feeFormatted,
+    feeAmountKr: feeKr,
+    successFeeDesc: document.getElementById('successFeeDesc').value.trim(),
+    vatOption: document.getElementById('vatOption').value,
+    expenseOption: document.getElementById('expenseOption').value,
+    clauseIndependence: document.getElementById('clauseIndependence').checked,
+    clauseUseLimit: document.getElementById('clauseUseLimit').checked,
+    clauseWorkplace: document.getElementById('clauseWorkplace').checked,
+    clauseDisclaimer: document.getElementById('clauseDisclaimer').checked,
+    clauseConfDestroy: document.getElementById('clauseConfDestroy').checked,
+    clauseCourt: document.getElementById('clauseCourt').checked,
+    partyAType,
+    labelA: '위임자',
+    labelB: '수임자',
+  };
+}
+
+// ===== 계약서 조항 생성 =====
+// cl: 동그라미번호 항 → <p> (Word에서 줄바꿈 확실, MSO 인라인스타일로 간격 제어)
+// ns: 번호없는 단일문단 → <p>
+function CL(txt) { return `<p class="cl" style="margin:0;margin-left:18pt;text-indent:-18pt;mso-margin-top-alt:0pt;mso-margin-bottom-alt:0pt;mso-line-height-rule:exactly">${txt}</p>`; }
+function NS(txt) { return `<p class="cl-nosub" style="margin:0;text-indent:12pt;mso-margin-top-alt:0pt;mso-margin-bottom-alt:0pt;mso-line-height-rule:exactly">${txt}</p>`; }
+
+function buildClauses(d) {
+  const clauses = [];
+  let no = 1;
+  const p = (txt) => txt || '<span class="placeholder">[미입력]</span>';
+  const u = (txt) => txt ? `<span class="uline">${txt}</span>` : '<span class="placeholder">[미입력]</span>';
+  const compA = u(d.companyA);
+  const compB = u(d.companyB);
+
+  // 제1조 (목적)
+  if (d.type === '세무조정') {
+    clauses.push({ title: `제 ${no} 조 (목적)`, body: NS(`본 계약은 ${compA}(이하 "갑")과 ${compB}(이하 "을")이 법인세법에 의한 "갑"의 ${u(d.adjYear)}년 사업연도 귀속 법인세 세무조정을 위한 수임계약을 체결하는데 있어서 필요한 사항을 정함을 목적으로 한다.`) });
+  } else {
+    clauses.push({ title: `제 ${no} 조 (목적)`, body: NS(`${compA}(이하 "갑")은 세무자문 업무와 관련하여 ${compB}(이하 "을")을 용역제공기관으로 선임하고 용역의 범위, 조건 등에 관한 사항을 정하기 위해 본 계약을 체결한다.`) });
+  }
+  no++;
+
+  // 제2조 (위임업무 / 을의 업무범위)
+  const taskTitle = d.type === '세무조정' ? `제 ${no} 조 ("을"의 업무범위)` : `제 ${no} 조 (위임업무)`;
+  let taskBody = d.type === '세무조정'
+    ? CL(`① "을"은 "갑"의 위임에 따라 ${u(d.adjYear)}년 귀속 법인세 세무조정업무를 수행한다.`)
+    : CL(`① "을"은 "갑"의 요청에 따라 다음의 세무자문 업무를 수행하기로 한다.`);
+  let taskList = '';
+  if (d.tasks.length > 0) {
+    taskList = '<ul class="article-list">' + d.tasks.map(t => `<li><span class="uline">${t}</span></li>`).join('') + '<li>상기 기타 관련 업무</li></ul>';
+  }
+  const taskSub = CL(`② "을"은 "갑"이 제공한 재무제표, 장부, 기타 증빙서류 등의 서면자료 및 구두내용을 근거로 하여 업무를 수행하며, "갑"이 "을"에게 서면자료 및 구두내용을 제공하는 과정에서 자료나 내용을 누락하거나 잘못된 자료나 내용을 제공하는 경우 자료와 내용의 누락여부 및 적정성에 관한 검토는 "을"의 업무범위에 포함되지 않는다.`);
+  clauses.push({ title: taskTitle, body: taskBody + taskList + taskSub });
+  no++;
+
+  // 제3조 (신의·성실)
+  clauses.push({ title: `제 ${no} 조 (신의·성실)`, body: d.type === '세무조정' ? NS(`"을"은 "갑"이 제공한 재무제표, 장부, 기타 필요한 관계증빙서류를 근거로 신의·성실하게 세무조정업무를 수행하여야 한다.`) : NS(`"을"은 신의·성실하게 수임업무에 임한다.`) });
+  no++;
+
+  // 제4조 (업무협조와 자료제공)
+  if (d.type === '세무조정') {
+    clauses.push({ title: `제 ${no} 조 (업무협조와 자료제공)`, body: CL(`① "갑"은 "을"이 수행하는 세무조정업무에 적극 협조하여야 한다.`) + CL(`② "갑"은 세무조정업무에 필요한 재무제표, 장부 및 기타 필요한 관계증빙서류를 "을"이 요구하는 기일까지 제공하여야 한다.`) });
+  } else {
+    clauses.push({ title: `제 ${no} 조 (업무협조와 자료제공)`, body: NS(`"갑"은 "을"이 본 용역을 수행함에 있어 필요하다고 인정하여 서류, 장부, 증빙 및 관련서류 등의 등·사본 또는 열람을 요청하는 경우 이에 응하여야 한다.`) });
+  }
+  no++;
+
+  // 제5조 (업무수행기간)
+  let periodStr = '';
+  if (d.periodText) { periodStr = `<span class="uline">${d.periodText}</span>`; }
+  else if (d.periodStart && d.periodEnd) { periodStr = `<span class="uline">${formatDate(d.periodStart)}부터 ${formatDate(d.periodEnd)}까지</span>`; }
+  else if (d.periodEnd) { periodStr = `<span class="uline">계약 체결일부터 ${formatDate(d.periodEnd)}까지</span>`; }
+  else { periodStr = '<span class="placeholder">[기간 미입력]</span>'; }
+  clauses.push({ title: `제 ${no} 조 (업무수행기간)`, body: d.type === '세무조정' ? NS(`세무조정업무 수행기간은 ${periodStr}로 한다. 다만, 상기 업무수행기간은 "갑"과 "을"이 상호 협의하여 변경할 수 있다.`) : NS(`상기 제 2조의 용역수행기간은 ${periodStr}로 한다. 다만, 용역수행기간은 "갑"과 "을"이 상호 협의하여 변경할 수 있다.`) });
+  no++;
+
+  // 업무수행장소 (선택)
+  if (d.clauseWorkplace && d.type !== '세무조정') {
+    clauses.push({ title: `제 ${no} 조 (업무수행장소)`, body: NS(`"을"이 "갑"의 회사를 방문하여 업무를 수행하는 경우 사무실 및 비품을 제공한다.`) });
+    no++;
+  }
+
+  // 사용과 배포의 제한 (선택)
+  if (d.clauseUseLimit && d.type !== '세무조정') {
+    clauses.push({ title: `제 ${no} 조 (사용과 배포의 제한)`, body: NS(`"을"의 업무결과는 "갑"의 사전동의 없이는 "갑" 이외의 제3자에게 배포 또는 인용될 수 없다.`) });
+    no++;
+  }
+
+  // 보수 조항
+  let feeBody = '';
+  const feeU = u(d.feeAmountKr);
+  const feeAmtU = u(d.feeAmount);
+  if (d.type === '세무조정') {
+    let feeNo = 1;
+    if (d.feeType === '정액' || d.feeType === '혼합') {
+      feeBody = CL(`① "을"이 수임한 세무조정업무에 대한 용역보수는 일금 ${feeU}(￦${feeAmtU}, 부가가치세 ${d.vatOption})으로 한다.`);
+      feeNo++;
+    }
+    if (d.feeType === '성공') { feeBody += CL(`${['①','②','③'][feeNo-1]} "을"이 수임한 세무조정업무에 대한 용역보수는 ${u(d.successFeeDesc)}으로 한다.`); feeNo++; }
+    else if (d.feeType === '혼합') { feeBody += CL(`${['①','②','③'][feeNo-1]} 추가 성공보수: ${u(d.successFeeDesc)}`); feeNo++; }
+    if (d.expenseOption === '갑부담') { feeBody += CL(`${['①','②','③'][feeNo-1]} 용역보수 이외에 "을"이 본 업무수행과 관련하여 출장비, 인쇄비 등 부대경비가 발생할 경우에는 실제 발생액을 한도로 하여 "갑"이 별도로 부담한다.`); feeNo++; }
+    feeBody += CL(`${['①','②','③','④'][feeNo-1]} 상기 청구시점에 "을"은 "갑"에게 세금계산서를 발행하여 교부하고, "갑"은 청구일로부터 2주 이내에 지급하기로 한다.`);
+  } else {
+    let feeNo = 1;
+    if (d.feeType === '정액' || d.feeType === '혼합') {
+      feeBody = CL(`① "을"이 제2조의 용역업무를 추진함에 따른 용역보수는 일금 ${feeU}(￦${feeAmtU}, 부가가치세 ${d.vatOption})으로 한다.`);
+      feeNo++;
+    }
+    if (d.feeType === '성공') { feeBody = CL(`① "을"이 제2조의 용역업무를 추진함에 따른 용역보수는 ${u(d.successFeeDesc)}으로 한다.`); feeNo++; }
+    if (d.feeType === '혼합') { feeBody += CL(`② 추가 성공보수: ${u(d.successFeeDesc)}`); feeNo++; }
+    if (d.expenseOption === '갑부담') { feeBody += CL(`${['①','②','③'][feeNo-1]} 용역보수 이외에 "을"이 본 업무수행과 관련하여 출장비, 인쇄비 등 부대경비가 발생할 경우에는 실제 발생액을 한도로 하여 "갑"이 별도로 부담한다.`); feeNo++; }
+    feeBody += CL(`${['①','②','③','④'][feeNo-1]} 상기 청구시점에 "을"은 "갑"에게 세금계산서를 발행하여 교부하고, "갑"은 청구일로부터 2주 이내에 지급하기로 한다.`);
+  }
+  clauses.push({ title: `제 ${no} 조 (${d.type === '세무조정' ? '보수' : '용역에 대한 보수 및 지급시기'})`, body: feeBody });
+  no++;
+
+  // 독립성 확인 (선택)
+  if (d.clauseIndependence) {
+    clauses.push({ title: `제 ${no} 조 (독립성 확인)`, body: NS(`"갑"과 "을"이 제2조의 업무수행에 관한 계약을 함에 있어 "갑"은 "갑"의 감사에게 사전에 계약에 관한 협의를 선행하고 본 계약을 체결하는 것으로 한다.`) });
+    no++;
+  }
+
+  // 계약해제
+  clauses.push({ title: `제 ${no} 조 (${d.type === '세무조정' ? '해약의 책임' : '계약해제'})`, body: d.type === '세무조정'
+    ? CL(`① "갑"의 사정에 의하여 "을"이 세무조정업무수행 착수 후에 해약을 할 때에는 보수의 전액을 지급한다.`) + CL(`② "을"의 사정에 의하여 해약할 때에는 "을"은 기 수령한 보수 전액을 반환한다.`)
+    : CL(`① "갑"의 사정에 의하여 용역 착수 후에 해약을 할 때는 "갑"은 해약 시점까지 산출한 보수 등의 전액을 지급하며, "을"의 위임업무 수행의무는 소멸한다.`) + CL(`② "을"의 사정에 의하여 해약을 할 때에는 "을"은 기수령한 보수를 반환한다.`) });
+  no++;
+
+  // 을의 면책
+  let disclaimerBody = '';
+  if (d.clauseDisclaimer && d.type !== '세무조정') { disclaimerBody = CL(`① "을"이 세무자문 내용이 세무상 아무런 문제가 없음을 보장하는 것이 아님을 "갑"이 주지한다.`); }
+  if (d.type === '세무조정') {
+    disclaimerBody += CL(`① "갑"은 세무조정 결과를 면밀히 검토하여 이견이 있을 경우에는 "을"에게 통지하여야 한다.`) + CL(`② "갑"이 "을"의 세무조정업무 수행에 필요한 자료를 적시에 제공하지 아니하거나 정확하지 아니한 자료를 제공하는 경우 이로 인하여 발생되는 문제에 대하여는 "갑"이 책임을 지며, "을"의 중대한 과실로 인하여 "갑"에게 손해가 발생한 경우에는 "을"은 받은 보수 범위 한도내에서 배상하기로 한다.`);
+  } else {
+    disclaimerBody += CL(`${d.clauseDisclaimer ? '②' : '①'} "갑"이 "을"의 업무수행에 필요한 자료를 적시에 제공하지 아니하거나 사실과 다른 자료를 제공하는 경우 이로 인하여 발생되는 문제에 대하여는 "갑"이 책임을 진다.`) + CL(`${d.clauseDisclaimer ? '③' : '②'} "갑"은 "을"의 용역내용을 면밀히 검토하여 이견이 있을 경우에 "을"에게 통보하여야 한다. "을"의 고의 또는 중대한 과실로 인하여 "갑"에게 손실이 발생한 경우에는 "을"은 받은 보수 한도내에서 "갑"에게 배상하기로 한다.`);
+  }
+  clauses.push({ title: `제 ${no} 조 ("을"의 면책${d.type === '세무조정' ? ' 등' : ''})`, body: disclaimerBody });
+  no++;
+
+  // 불가항력
+  clauses.push({ title: `제 ${no} 조 (불가항력으로 인한 면책)`, body: NS(`"갑" 또는 "을"이 천재지변 기타 불가항력적 사유로 인하여 본 계약을 이행할 수 없을 때에는 계약불이행의 책임이 없는 것으로 한다.`) });
+  no++;
+
+  // 비밀보장 (취득한)
+  let secretBody = '';
+  if (d.clauseConfDestroy) {
+    secretBody = CL(`① "을"은 본 용역업무 수행 중에 취득한 "갑"의 제 비밀을 타에 누설하여서는 아니 된다.`);
+    secretBody += CL(`② 본 계약서 제2조 제1항에서 정한 업무에 대해서는 별도의 용역보고서는 발행하지 않으며, "을"이 "갑"에게 용역 종료 보고 후 관련 자료 일체를 폐기하기로 한다.`);
+  } else {
+    secretBody = NS(`"을"은 본 용역업무 수행 중에 취득한 "갑"의 제 비밀을 타에 누설하여서는 아니 된다.`);
+  }
+  clauses.push({ title: `제 ${no} 조 (${d.type === '세무조정' ? '기밀보장' : '비밀보장'})`, body: secretBody });
+  no++;
+
+  // 분쟁의 해결 (을의 소재지 관할법원)
+  let courtBody = CL(`① "갑"과 "을"간에 본 계약의 해석에 관하여 이견이 있을 경우 관계법령 및 상관례에 따른다.`);
+  if (d.clauseCourt) { courtBody += CL(`② 본 계약에 관련하여 분쟁이 발생한 경우 동 분쟁의 소송 관할 법원은 "을"의 소재지 관할법원으로 한다.`); }
+  clauses.push({ title: `제 ${no} 조 (분쟁의 해결)`, body: courtBody });
+  no++;
+
+  // 상호합의
+  clauses.push({ title: `제 ${no} 조 (상호${d.type === '세무조정' ? '협의' : '합의'})`, body: NS(`본 계약에 명시되지 아니한 사항은 상호${d.type === '세무조정' ? '협의' : '합의'}에 의하여 정한다.`) });
+
+  return clauses;
+}
+
+// ===== 미리보기 =====
+function generatePreview() {
+  const d = collectData();
+  const clauses = buildClauses(d);
+  const p = (v) => v || '<span class="placeholder">[미입력]</span>';
+  const uu = (v) => v ? `<span class="uline">${v}</span>` : '<span class="placeholder">[미입력]</span>';
+  const docTitle = '세무자문 계약서';
+
+  let html = `<div class="doc-title">${docTitle}</div>`;
+  html += `<div class="parties">`;
+  if (d.type === '세무조정') {
+    html += `<p>위 임 자 (갑) ${uu(d.companyA)}</p>`;
+    html += `<p style="margin-top:6px;">수 임 자 (을) ${uu(d.companyB)}</p>`;
+    html += `</div>`;
+    html += `<div class="intro-text">"갑"과 "을"은 "갑"의 ${uu(d.adjYear)}년 귀속 사업연도 법인세 세무조정업무를 위하여 다음과 같이 계약을 체결한다.</div>`;
+  } else {
+    html += `<p>위 임 자 (갑) ${uu(d.companyA)}</p>`;
+    html += `<p style="margin-top:6px;">수 임 자 (을) ${uu(d.companyB)}</p>`;
+    html += `</div>`;
+    html += `<div class="intro-text">"갑"과 "을"은 세무자문 업무와 관련하여 다음과 같이 계약을 체결한다.</div>`;
+  }
+  clauses.forEach(c => { html += `<div class="article"><div class="article-title">${c.title}</div><div class="article-body">${c.body}</div></div>`; });
+  html += `<div class="closing">본 계약의 성립을 입증하기 위하여 계약서 2통을 작성하고, "갑"과 "을"이 각기 기명 날인하여 각1통씩 보관한다.</div>`;
+  html += `<div class="sign-area"><div class="sign-date">${d.contractDate ? '<span class="uline">' + formatDateDoc(d.contractDate) + '</span>' : '<span class="placeholder">[계약일 미입력]</span>'}</div>`;
+  const signRow = (lbl, val) => `<tr><td style="white-space:nowrap;vertical-align:top;padding:0 6px 0 0;border:none;width:1%;font-size:10pt;">${lbl}</td><td style="vertical-align:top;padding:0;border:none;font-size:10pt;">${val}</td></tr>`;
+  let partyAHtml = `<div class="label">${d.labelA}(갑)</div><p style="margin:0;font-size:10pt;">&nbsp;</p><table style="border-collapse:collapse;border:none;line-height:1.5;">`;
+  if (d.partyAType === '개인') {
+    partyAHtml += signRow('주 &nbsp;&nbsp; 소 :', uu(d.addressA));
+    partyAHtml += signRow('성 &nbsp;&nbsp; 명 :', uu(d.companyA) + ' (인)');
+  } else {
+    partyAHtml += signRow('주 &nbsp;&nbsp; 소 :', uu(d.addressA));
+    partyAHtml += signRow('상 &nbsp;&nbsp; 호 :', uu(d.companyA));
+    partyAHtml += signRow('대표이사 :', uu(d.ceoA) + ' (인)');
+  }
+  partyAHtml += '</table>';
+  let partyBHtml = `<div class="label">${d.labelB}(을)</div><p style="margin:0;font-size:10pt;">&nbsp;</p><table style="border-collapse:collapse;border:none;line-height:1.5;">`;
+  partyBHtml += signRow('주 &nbsp;&nbsp; 소 :', uu(d.addressB));
+  partyBHtml += signRow('상 &nbsp;&nbsp; 호 :', uu(d.companyB));
+  partyBHtml += signRow('대표이사 :', uu(d.ceoB) + ' (인)');
+  partyBHtml += '</table>';
+  html += `<table class="sign-table" style="width:100%;border-collapse:collapse;border:none;margin-top:12px;"><tr><td style="width:50%;vertical-align:top;border:none;padding:0 8px 0 0;line-height:1.9;font-size:10pt;">${partyAHtml}</td><td style="width:50%;vertical-align:top;border:none;padding:0 0 0 8px;line-height:1.9;font-size:10pt;">${partyBHtml}</td></tr></table></div>`;
+  document.getElementById('previewArea').innerHTML = html;
+}
+
+// ===== Word 문서 생성 (외부 라이브러리 없이 HTML→Word 변환) =====
+function generateDocx() {
+  try {
+    generatePreview();
+    const content = document.getElementById('previewArea').innerHTML;
+    const d = collectData();
+    const p = (v) => v || '미입력';
+    const docTitle = '세무자문 계약서';
+
+    const wordStyles = `
+      @page { size: A4; margin: 2.5cm 2.5cm 2.5cm 2.5cm; }
+      body { font-family: 'HY신명조', '바탕', 'Batang', serif; font-size: 10pt; line-height: 170%; color: #000; }
+      p { margin: 0; }
+      .doc-title { text-align: center; font-size: 12pt; font-weight: bold; margin-bottom: 4pt; letter-spacing: 1px; }
+      .doc-line { border: none; height: 2.5px; background: #605848; width: 75%; margin: 5pt auto 14pt; }
+      .parties { margin-bottom: 14pt; line-height: 150%; }
+      .parties p { margin: 0 0 1pt 0; }
+      .intro-text { margin-bottom: 12pt; line-height: 150%; text-align: justify; }
+      .closing { margin-top: 12pt; text-align: justify; }
+      .article { margin-bottom: 12pt; margin-top: 10pt; }
+      .article-title { font-weight: bold; margin-bottom: 6pt; font-size: 10pt; }
+      .article-body { text-align: justify; }
+      p.cl { margin: 0; margin-left: 18pt; text-indent: -18pt; mso-margin-top-alt: 0pt; mso-margin-bottom-alt: 0pt; mso-line-height-rule: exactly; }
+      p.cl-nosub { margin: 0; text-indent: 12pt; mso-margin-top-alt: 0pt; mso-margin-bottom-alt: 0pt; mso-line-height-rule: exactly; }
+      .uline { text-decoration: underline; }
+      .sign-area { margin-top: 18pt; text-align: center; }
+      .sign-date { font-size: 10pt; font-weight: bold; margin-bottom: 12pt; }
+      .sign-table { width: 100%; border-collapse: collapse; margin-top: 12pt; }
+      .sign-table td { vertical-align: top; border: none; padding: 0 6pt; line-height: 190%; font-size: 10pt; text-align: left; }
+      .sign-table .label { font-weight: bold; font-size: 10pt; }
+      .article-list { padding-left: 2.5em; margin-top: 3pt; margin-bottom: 3pt; }
+      .article-list li { margin-bottom: 2pt; }
+      .placeholder { color: red; font-style: italic; }
+    `;
+
+    const fullHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta charset="utf-8">
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+      <!--[if gte mso 9]>
+      <xml>
+        <w:WordDocument>
+          <w:View>Print</w:View>
+          <w:Zoom>100</w:Zoom>
+          <w:DoNotOptimizeForBrowser/>
+        </w:WordDocument>
+      </xml>
+      <![endif]-->
+      <style>
+        /* MSO 기본 paragraph spacing 리셋 */
+        p.MsoNormal, li.MsoNormal, div.MsoNormal { margin: 0; }
+        p.cl, p.cl-nosub { mso-style-unhide: no; mso-para-margin: 0cm; mso-para-margin-top: 0cm; mso-para-margin-bottom: 0cm; mso-pagination: widow-orphan; }
+        ${wordStyles}
+      </style>
+    </head>
+    <body>${content}</body>
+    </html>`;
+
+    const blob = new Blob(['\ufeff' + fullHtml], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${docTitle}_${p(d.companyA)}_${d.contractDate || '날짜미정'}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  } catch(e) {
+    console.error('Word 생성 오류:', e);
+    alert('Word 문서 생성 중 오류가 발생했습니다: ' + e.message);
+  }
+}
+
+// ===== PDF =====
+function generatePdf() {
+  generatePreview();
+  const element = document.getElementById('previewArea');
+  const d = collectData();
+  const p = (v) => v || '미입력';
+  const docTitle = '세무자문 계약서';
+  html2pdf().set({
+    margin: [10,10,10,10],
+    filename: `${docTitle}_${p(d.companyA)}_${d.contractDate || '날짜미정'}.pdf`,
+    image: { type:'jpeg', quality:0.98 },
+    html2canvas: { scale:2, useCORS:true },
+    jsPDF: { unit:'mm', format:'a4', orientation:'portrait' }
+  }).from(element).save();
+}
+
+// ===== 초기화 =====
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('contractDate').value = new Date().toISOString().split('T')[0];
+  renderPresets();
+});
+</script>
+</body>
+</html>
